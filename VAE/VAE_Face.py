@@ -9,8 +9,9 @@ import torch.nn.functional as F
 from torchvision.utils import save_image # Load 'save_image' Function
 import time
 start = time.time()
+size = (96,72)
 trans = transforms.Compose([
-    transforms.Resize((240,180)),transforms.ToTensor()
+    transforms.Resize(size),transforms.ToTensor()
 ])
 
 train_data = torchvision.datasets.ImageFolder(root='kong_face',
@@ -29,11 +30,11 @@ if not os.path.exists(sample_dir):
     os.makedirs(sample_dir)
 
 # Hyper-parameters
-image_size = 240*180
+image_size = size[0]*size[1]
 h_dim = 256
 h_dim2 = 128
 z_dim = 2
-num_epochs = 320
+num_epochs = 1000
 batch_size = 20
 learning_rate = 0.001
 
@@ -99,17 +100,17 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 import numpy as np
 from numpy import moveaxis
 
-def plt_manifold(trained_model_instance, save_file_path, mean_range=3, n=10, figsize=(100, 100)):
+def plt_manifold(trained_model_instance, save_file_path, mean_range=1, n=7, figsize=(12, 9)):
     x1_axis = np.linspace(-mean_range, mean_range, n)
     y1_axis = np.linspace(-mean_range, mean_range, n)
-    canvas = np.empty((3,240*n, 180*n))
+    canvas = np.empty((3,size[0]*n, size[1]*n))
     print("making_manifold...")
     for i, y1 in enumerate(x1_axis):
         for j, x1 in enumerate(y1_axis):
             z_mean = np.array([[[x1, y1]],[[x1, y1]],[[x1, y1]]] * 1)
             z_mean = torch.tensor(z_mean, device=device).float()
             x_reconst = model.decode(z_mean) ##model.decode (single_gpu에선)
-            canvas[:,(n-i-1)*240:(n-i)*240, j*180:(j+1)*180] = x_reconst.view(3,240,180).cpu()
+            canvas[:,(n-i-1)*size[0]:(n-i)*size[0], j*size[1]:(j+1)*size[1]] = x_reconst.view(3,size[0],size[1]).cpu()
     canvas = moveaxis(canvas, 1, 0)
     canvas = moveaxis(canvas, 1, 2)
     plt.figure(figsize=figsize)
@@ -146,26 +147,22 @@ for epoch in range(num_epochs):
     # Save Model on Last epoch
     if epoch+1 == num_epochs:
         torch.save(model.state_dict(), './model.pth')
-    if epoch < 30:
-        if epoch%2 ==0:
-            save_file_path = "./face_manifold/face_manifold_{}.png".format(epoch)
-            with torch.no_grad():
-                plt_manifold(model, save_file_path)
-    else:
-        if epoch%40==0:
-            save_file_path = "./face_manifold/face_manifold_{}.png".format(epoch)
-            with torch.no_grad():
-                plt_manifold(model, save_file_path)
-            print("time :", time.time() - start)
+    else:pass
+    if (epoch+1)%50==0 or epoch ==0:
+        print(epoch)
+        save_file_path = "./face_manifold/very_small/face_manifold_{}.png".format(epoch+1)
+        with torch.no_grad():
+            plt_manifold(model, save_file_path)
+        print("time :", time.time() - start)
 
     # Save Generated Image and Reconstructed Image at every Epoch
     with torch.no_grad():
         # Save the sampled images
         z = torch.randn(batch_size,3,z_dim).to(device) # Randomly Sample z (Only Contains Mean)
-        out = model.decode(z).view(-1,3, 240, 180) #sigle gpu에선 model로 써도됨
+        out = model.decode(z).view(-1,3, size[0], size[1]) #sigle gpu에선 model로 써도됨
         save_image(out, os.path.join(sample_dir, 'sampled-{}.png'.format(epoch+1)))
 
         # Save the reconstructed images
         out, _, _ = model(x)
-        x_concat = torch.cat([x.view(-1, 3, 240, 180), out.view(-1, 3, 240, 180)], dim=3)
+        x_concat = torch.cat([x.view(-1, 3, size[0], size[1]), out.view(-1, 3, size[0], size[1])], dim=3)
         save_image(x_concat, os.path.join(sample_dir, 'reconst-{}.png'.format(epoch+1)))
