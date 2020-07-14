@@ -45,8 +45,6 @@ train_loader = torch.utils.data.DataLoader(dataset=train_data,
                                            batch_size=batch_size,
                                            shuffle=True)
 
-# In[5]:
-
 
 # ================================================================== #
 #                        3. Define Model
